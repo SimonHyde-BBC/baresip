@@ -12,7 +12,7 @@ jobs:
     - name: install packages
       run: |
         sudo apt-get update && sudo apt-get install -y libssl-dev
-        sudo snap install valgrind
+        sudo snap install --classic valgrind
    
     - uses: sreimers/pr-dependency-action@v0.3
       with:
