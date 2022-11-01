@@ -795,6 +795,7 @@ int call_streams_alloc(struct call *call)
 	strm_prm.use_rtp = call->use_rtp;
 	strm_prm.af      = call->af;
 	strm_prm.cname   = call->local_uri;
+	strm_prm.peer    = call->peer_uri;
 
 	/* Audio stream */
 	err = audio_alloc(&call->audio, &call->streaml, &strm_prm,
@@ -1117,6 +1118,9 @@ int call_connect(struct call *call, const struct pl *paddr)
 		else {
 			err = pl_strdup(&call->peer_uri, &addr.auri);
 		}
+
+		if (pl_isset(&addr.dname))
+			pl_strdup(&call->peer_name, &addr.dname);
 
 		uri_header_get(&addr.uri.headers, &rname, &rval);
 		if (pl_isset(&rval))

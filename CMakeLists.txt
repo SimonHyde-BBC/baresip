@@ -12,9 +12,19 @@
 
 cmake_minimum_required(VERSION 3.10)
 
-project(baresip VERSION 2.8.2)
+project(baresip VERSION 2.9.0)
 
 set(PROJECT_SOVERSION 1) # bump if ABI breaks
+
+# Pre-release identifier, comment out on a release
+# Increment for breaking changes (dev2, dev3...)
+set(PROJECT_VERSION_PRE dev)
+
+if(PROJECT_VERSION_PRE)
+  set(PROJECT_VERSION_FULL ${PROJECT_VERSION}-${PROJECT_VERSION_PRE})
+else()
+  set(PROJECT_VERSION_FULL ${PROJECT_VERSION})
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_LIST_DIR}/cmake)
 
@@ -48,11 +58,14 @@ if(MSVC)
   add_compile_options("/W3")
 else()
   add_compile_options(
-    -pedantic
     -Wall
-    -Wbad-function-cast
-    -Wcast-align
     -Wextra
+  )
+
+  set(c_flags
+    -pedantic
+    -Wcast-align
+    -Wbad-function-cast
     -Wmissing-declarations
     -Wmissing-prototypes
     -Wnested-externs
@@ -63,15 +76,27 @@ else()
     -Wuninitialized
     -Wvla
   )
-endif()
 
-if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+  if(CMAKE_C_COMPILER_ID MATCHES "Clang")
+      list(APPEND c_flags -Watomic-implicit-seq-cst -Wshorten-64-to-32)
+  endif()
+
   add_compile_options(
-    "$<$<COMPILE_LANGUAGE:C>:-Watomic-implicit-seq-cst;-Wshorten-64-to-32>"
+    "$<$<COMPILE_LANGUAGE:C>:${c_flags}>"
   )
 endif()
 
+
+
 find_package(re CONFIG REQUIRED HINTS ../re/cmake)
+
+list(APPEND RE_DEFINITIONS
+  -DVERSION="${PROJECT_VERSION_FULL}"
+  -DVER_MAJOR=${PROJECT_VERSION_MAJOR}
+  -DVER_MINOR=${PROJECT_VERSION_MINOR}
+  -DVER_PATCH=${PROJECT_VERSION_PATCH}
+)
+
 add_definitions(${RE_DEFINITIONS})
 
 include_directories(
@@ -200,14 +225,10 @@ if(STATIC)
   list(APPEND SRCS ${CMAKE_CURRENT_BINARY_DIR}/src/static.c)
 else()
   foreach(mod IN LISTS MODULES)
-
     if(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
       set_target_properties(${mod} PROPERTIES
                             LINK_FLAGS "-undefined dynamic_lookup")
     endif()
-
-    install(TARGETS ${mod} LIBRARY DESTINATION
-        ${CMAKE_INSTALL_LIBDIR}/baresip/modules)
   endforeach()
 endif()
 
@@ -253,7 +274,7 @@ endif()
 set_target_properties(baresip PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 set_target_properties(baresip PROPERTIES PUBLIC_HEADER "${HEADERS}")
-install(TARGETS baresip LIBRARY)
+
 
 ##############################################################################
 #
@@ -264,17 +285,23 @@ add_executable(baresip_exe src/main.c)
 
 set_target_properties(baresip_exe PROPERTIES OUTPUT_NAME baresip)
 
-target_link_libraries(baresip_exe baresip ${LINKLIBS})
-install(TARGETS baresip_exe)
-
+target_link_libraries(baresip_exe PRIVATE baresip ${LINKLIBS})
 
 ##############################################################################
 #
-# Install share
+# Packaging section
 #
 
-file(GLOB SHARE_FILES "${PROJECT_SOURCE_DIR}/share/*")
-install(FILES ${SHARE_FILES} DESTINATION ${CMAKE_INSTALL_DATADIR}/baresip)
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  add_subdirectory(packaging)
+endif()
+
+configure_file(packaging/libbaresip.pc.in libbaresip.pc @ONLY)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libbaresip.pc
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+  COMPONENT Development
+)
 
 
 ##############################################################################
@@ -291,11 +318,66 @@ add_subdirectory(test)
 
 if(NOT STATIC AND UNIX)
   foreach(mod IN LISTS MODULES)
+    set(mod_lib ${mod}${CMAKE_SHARED_MODULE_SUFFIX})
     add_custom_command(
       TARGET baresip_exe POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E create_symlink
-        ${CMAKE_BINARY_DIR}/modules/${mod}/${mod}${CMAKE_SHARED_LIBRARY_SUFFIX}
-        ${CMAKE_BINARY_DIR}/${mod}${CMAKE_SHARED_LIBRARY_SUFFIX}
+        ${CMAKE_CURRENT_BINARY_DIR}/modules/${mod}/${mod_lib}
+        ${CMAKE_CURRENT_BINARY_DIR}/${mod_lib}
+    )
+  endforeach()
+  foreach(mod IN LISTS APP_MODULES)
+    set(mod_lib ${mod}${CMAKE_SHARED_MODULE_SUFFIX})
+    add_custom_command(
+      TARGET baresip_exe POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E create_symlink
+        ${CMAKE_CURRENT_BINARY_DIR}/app_modules/${mod}/${mod_lib}
+        ${CMAKE_CURRENT_BINARY_DIR}/${mod_lib}
     )
   endforeach()
 endif()
+
+
+##############################################################################
+#
+# Install section
+#
+
+install(TARGETS baresip_exe baresip
+  RUNTIME
+    COMPONENT Applications
+  LIBRARY
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT Libraries
+    NAMELINK_SKIP
+  ARCHIVE
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    COMPONENT Development
+  PUBLIC_HEADER
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+    COMPONENT Development
+)
+
+if(NOT STATIC)
+  foreach(mod IN LISTS MODULES)
+    install(TARGETS ${mod}
+      LIBRARY
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/baresip/modules
+        COMPONENT Applications
+    )
+  endforeach()
+endif()
+
+install(TARGETS baresip
+  LIBRARY
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    NAMELINK_ONLY
+    COMPONENT Development
+)
+
+file(GLOB SHARE_FILES "${PROJECT_SOURCE_DIR}/share/*")
+
+install(FILES ${SHARE_FILES}
+  DESTINATION ${CMAKE_INSTALL_DATADIR}/baresip
+  COMPONENT Applications
+)

@@ -13,7 +13,7 @@ extern "C" {
 
 
 /** Defines the Baresip version string */
-#define BARESIP_VERSION "2.8.2"
+#define BARESIP_VERSION "2.9.0"
 
 
 #ifndef NET_MAX_NS
@@ -128,6 +128,8 @@ const char *account_medianat(const struct account *acc);
 const char *account_mwi(const struct account *acc);
 const char *account_call_transfer(const struct account *acc);
 const char *account_extra(const struct account *acc);
+int account_uri_complete_strdup(const struct account *acc, char **strp,
+				const struct pl *uri);
 int account_uri_complete(const struct account *acc, struct mbuf *buf,
 			 const char *uri);
 int account_answerdelay(const struct account *acc);
@@ -463,8 +465,18 @@ struct contact *contacts_current(const struct contacts *contacts);
 
 /** Defines a media device */
 struct mediadev {
-	struct le   le;
-	char  *name;
+	struct le le;
+	char *name;
+
+	/* Generic: */
+	struct {
+		uint32_t channels;
+		bool is_default;
+	} src, play;
+
+	/* Module/driver specific: */
+	int host_index;
+	int device_index;
 };
 
 int mediadev_add(struct list *dev_list, const char *name);
@@ -646,6 +658,8 @@ const char *log_level_name(enum log_level level);
 void log_enable_debug(bool enable);
 void log_enable_info(bool enable);
 void log_enable_stdout(bool enable);
+void log_enable_timestamps(bool enable);
+void log_enable_color(bool enable);
 void vlog(enum log_level level, const char *fmt, va_list ap);
 void loglv(enum log_level level, const char *fmt, ...);
 void debug(const char *fmt, ...);
@@ -892,6 +906,7 @@ struct ua   *uag_find(const struct pl *cuser);
 struct ua   *uag_find_msg(const struct sip_msg *msg);
 struct ua   *uag_find_aor(const char *aor);
 struct ua   *uag_find_param(const char *name, const char *val);
+struct ua   *uag_find_requri_pl(const struct pl *requri);
 struct ua   *uag_find_requri(const char *requri);
 struct sip  *uag_sip(void);
 struct list *uag_list(void);
@@ -1368,6 +1383,7 @@ struct stream_param {
 	bool use_rtp;       /**< Enable or disable RTP */
 	int af;             /**< Wanted address family */
 	const char *cname;  /**< Canonical name        */
+	const char *peer;   /**< Peer uri/name or identifier  */
 };
 
 typedef void (stream_mnatconn_h)(struct stream *strm, void *arg);
@@ -1405,6 +1421,8 @@ void stream_set_session_handlers(struct stream *strm,
 struct stream *stream_lookup_mid(const struct list *streaml,
 				 const char *mid, size_t len);
 const char *stream_name(const struct stream *strm);
+const char *stream_cname(const struct stream *strm);
+const char *stream_peer(const struct stream *strm);
 int  stream_bundle_init(struct stream *strm, bool offerer);
 int  stream_debug(struct re_printf *pf, const struct stream *s);
 void stream_enable_rtp_timeout(struct stream *strm, uint32_t timeout_ms);

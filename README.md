@@ -91,7 +91,7 @@ Distributed under BSD license
   - Windows winwave audio-driver
 
 * Video:
-  - Support for H.263, H.264, H.265, VP8, VP9, AV1 Video
+  - Support for H.264, H.265, VP8, VP9, AV1 Video
   - Configurable resolution/framerate/bitrate
   - Configurable video input/output
   - Support for asymmetric video
@@ -100,7 +100,6 @@ Distributed under BSD license
 
 * Video-codecs:
   - AV1
-  - H.263
   - H.264
   - H.265
   - VP8
@@ -141,7 +140,7 @@ Distributed under BSD license
 
 ## Building
 
-baresip is using GNU makefiles, and the following packages must be
+baresip is using CMake, and the following packages must be
 installed before building:
 
 * [libre](https://github.com/baresip/re)
@@ -317,9 +316,7 @@ x11           X11 video output driver
 
 ## IETF RFC/I-Ds:
 
-* RFC 2190  RTP Payload Format for H.263 Video Streams (Historic)
 * RFC 2250  RTP Payload Format for the mpa Speech and Audio Codec
-* RFC 2429  RTP Payload Format for 1998 ver of ITU-T Rec. H.263 Video (H.263+)
 * RFC 3016  RTP Payload Format for MPEG-4 Audio/Visual Streams
 * RFC 3262  Reliability of Provisional Responses for SIP
 * RFC 3311  SIP UPDATE Method
@@ -337,7 +334,6 @@ x11           X11 video output driver
 * RFC 4574  The SDP Label Attribute
 * RFC 4585  Extended RTP Profile for RTCP-Based Feedback (RTP/AVPF)
 * RFC 4587  RTP Payload Format for H.261 Video Streams
-* RFC 4629  RTP Payload Format for ITU-T Rec. H.263 Video
 * RFC 4796  The SDP Content Attribute
 * RFC 4867  RTP Payload Format for the AMR and AMR-WB Audio Codecs
 * RFC 4961  Symmetric RTP / RTP Control Protocol (RTCP)
@@ -373,13 +369,12 @@ x11           X11 video output driver
 
 ## Supported platforms:
 
-* Android (5.0 or later)
-* Apple macOS (10.12+) and iOS
-* FreeBSD
-* Linux
-* NetBSD
+* Android (6.0 or later)
+* Apple macOS (10.12+)
+* Apple iOS 9.0 or later
+* Linux (kernel 3.0 or later, and glibc 2.5.x or later)
 * OpenBSD
-* Windows (mingw and VS2019)
+* Windows 10 or later (mingw and VS2019)
 
 
 ### Supported versions of C Standard library
@@ -387,6 +382,7 @@ x11           X11 video output driver
 * Android bionic
 * BSD libc
 * GNU C Library (glibc)
+* Musl
 * Windows C Run-Time Libraries (CRT)
 * uClibc
 
@@ -394,7 +390,7 @@ x11           X11 video output driver
 ### Supported compilers:
 
 * gcc 4.x or later
-* ms vc2003 compiler
+* ms VS2019 compiler
 * clang 3.x or later
 
 
@@ -402,6 +398,7 @@ x11           X11 video output driver
 
 * OpenSSL version 1.1.0
 * OpenSSL version 1.1.1
+* OpenSSL version 3.0.x
 * LibreSSL version 2.x
 * LibreSSL version 3.x
 

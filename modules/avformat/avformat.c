@@ -10,16 +10,13 @@
 #define _BSD_SOURCE 1
 #include <unistd.h>
 #include <string.h>
-#include <pthread.h>
 #include <re.h>
 #include <rem.h>
 #include <baresip.h>
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libavdevice/avdevice.h>
-#if LIBAVUTIL_VERSION_MAJOR >= 56
 #include <libavutil/hwcontext.h>
-#endif
 #include "mod_avformat.h"
 
 
@@ -43,9 +40,7 @@
 static struct ausrc *ausrc;
 static struct vidsrc *mod_avf;
 
-#if LIBAVUTIL_VERSION_MAJOR >= 56
 static enum AVHWDeviceType avformat_hwdevice = AV_HWDEVICE_TYPE_NONE;
-#endif
 static char avformat_inputformat[64];
 static const AVCodec *avformat_decoder;
 static char pass_through[256] = "";
@@ -61,7 +56,7 @@ static void shared_destructor(void *arg)
 
 	if (st->run) {
 		st->run = false;
-		pthread_join(st->thread, NULL);
+		thrd_join(st->thread, NULL);
 	}
 
 	if (st->au.ctx) {
@@ -83,7 +78,7 @@ static void shared_destructor(void *arg)
 }
 
 
-static void *read_thread(void *data)
+static int read_thread(void *data)
 {
 	struct shared *st = data;
 	uint64_t now, offset = tmr_jiffies();
@@ -92,7 +87,7 @@ static void *read_thread(void *data)
 
 	pkt = av_packet_alloc();
 	if (!pkt)
-		return NULL;
+		return ENOMEM;
 
 	while (st->run) {
 
@@ -180,7 +175,7 @@ static void *read_thread(void *data)
  out:
 	av_packet_free(&pkt);
 
-	return NULL;
+	return 0;
 }
 
 
@@ -210,11 +205,11 @@ static int open_codec(struct stream *s, const struct AVStream *strm, int i,
 		}
 	}
 
-#if LIBAVUTIL_VERSION_MAJOR >= 56
 	if (avformat_hwdevice != AV_HWDEVICE_TYPE_NONE) {
 		AVBufferRef *hwctx;
+
 		ret = av_hwdevice_ctx_create(&hwctx, avformat_hwdevice,
-				NULL, NULL, 0);
+					     NULL, NULL, 0);
 		if (ret < 0) {
 			warning("avformat: error opening hw device vaapi"
                                        " (%i)\n", ret);
@@ -225,7 +220,6 @@ static int open_codec(struct stream *s, const struct AVStream *strm, int i,
 
 		av_buffer_unref(&hwctx);
 	}
-#endif
 
 	s->time_base = strm->time_base;
 	s->ctx = ctx;
@@ -420,7 +414,7 @@ int avformat_shared_alloc(struct shared **shp, const char *dev,
 	}
 
 	st->run = true;
-	err = pthread_create(&st->thread, NULL, read_thread, st);
+	err = thread_create_name(&st->thread, "avformat", read_thread, st);
 	if (err) {
 		st->run = false;
 		goto out;
@@ -485,16 +479,9 @@ void avformat_shared_set_video(struct shared *sh, struct vidsrc_st *st)
 static int module_init(void)
 {
 	int err;
-#if LIBAVUTIL_VERSION_MAJOR >= 56
 	char hwaccel[64] = "";
-#endif
 	char decoder[64] = "";
 
-#if LIBAVCODEC_VERSION_INT < AV_VERSION_INT(58, 9, 100)
-	avcodec_register_all();
-#endif
-
-#if LIBAVUTIL_VERSION_MAJOR >= 56
 	conf_get_str(conf_cur(), "avformat_hwaccel", hwaccel, sizeof(hwaccel));
 	if (str_isset(hwaccel)) {
 		avformat_hwdevice = av_hwdevice_find_type_by_name(hwaccel);
@@ -503,7 +490,6 @@ static int module_init(void)
                                         hwaccel);
 		}
 	}
-#endif
 
 	conf_get_str(conf_cur(), "avformat_inputformat", avformat_inputformat,
 			sizeof(avformat_inputformat));

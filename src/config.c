@@ -662,6 +662,8 @@ static const char *default_avcodec_hwaccel(void)
 	return "vaapi";
 #elif defined (DARWIN)
 	return "videotoolbox";
+#elif defined (WIN32)
+	return "nvenc";
 #else
 	return "none";
 #endif
@@ -1163,10 +1165,10 @@ int config_write_template(const char *file, const struct config *cfg)
 			"#avcodec_h264dec\th264\n"
 			"#avcodec_h265enc\tlibx265\n"
 			"#avcodec_h265dec\thevc\n"
-			"#avcodec_hwaccel\t%s\n",
-			default_avcodec_hwaccel(),
-			"#avcodec_profile_level_id 42002a\n",
-			"#avcodec_keyint\t\t10\n"
+			"#avcodec_hwaccel\t%s\n"
+			"#avcodec_profile_level_id 42002a\n"
+			"#avcodec_keyint\t\t10\n",
+			default_avcodec_hwaccel()
 			);
 
 	(void)re_fprintf(f,
@@ -1216,11 +1218,12 @@ int config_write_template(const char *file, const struct config *cfg)
 
 	(void)re_fprintf(f,
 			 "\n# avformat\n"
-			 "#avformat_hwaccel\tvaapi\n"
+			 "#avformat_hwaccel\t%s\n"
 			 "#avformat_inputformat\tmjpeg\n"
 			 "#avformat_decoder\tmjpeg\n"
 			 "#avformat_pass_through\tyes\n"
-			 "#avformat_rtsp_transport\tudp\n");
+			 "#avformat_rtsp_transport\tudp\n",
+			 default_avcodec_hwaccel());
 
 	if (f)
 		(void)fclose(f);
